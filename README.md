@@ -1,0 +1,180 @@
+# Docker Compose Secrets Manager
+
+This project is intended for folks who, like me, run their self-hosted infrastructure using `docker-compose.yaml` files.
+I like to keep my `docker-compose.yaml` files in a git repo.
+This way, I can work on the configs locally and deploy to my remote server.
+The git repo is my [configuration-as-code/infrastructure-as-code](https://www.cloudbees.com/blog/configuration-as-code-everything-need-know) for my self-hosted infrastructure.
+
+A common issue with such projects -- <b>what the heck do you do with the secrets?</b>
+
+`dscn` allows you to store your secrets, encrypted, in a file in the git repo.
+When your `docker compose` starts, `dscn` will decrypt the secrets and inject them into any `*.template` files in your repo.
+
+## Usage
+
+Add this service to your `docker-compose.yaml` file:
+
+```yaml
+  dcsm:
+    image: ghcr.io/igor47/dcsm:latest
+    environment:
+      - DCSM_KEYFILE=/config/key.private
+      - DCSM_SECRET_FILE=/config/secrets.encrypted
+      - DSCM_TEMPLATE_DIR=/config
+    volumes:
+      - .:/config
+```
+
+Here, we mount the entire directory as a volume to `/config`.
+Any `*.template` files in the directory will be processed by `dcsm` and the result will be written to the same path without the `.template` suffix.
+You can then mount the resulting file to your services.
+
+Services that depend on secrets to be injected by `dcsm` should depend on the `dcsm` service:
+
+```yaml
+  my_service:
+    image: my_image
+    depends_on:
+      dcsm:
+        condition: service_healthy
+
+```
+
+The `secret.encrypted` file is a YAML file encrypted using [age](https://age-encryption.org/).
+The `key.private` file is the private key that corresponds to the public key used to encrypt the `secrets.encrypted` file.
+The `key.private` file should be kept secret and should not be checked into your git repo.
+
+The `.template` files will be processed using [python's `string.Template`](https://docs.python.org/3/library/string.html#template-strings) syntax.
+We will replace any variables found in your `secrets.encrypted` file with the corresponding values.
+
+
+## Example
+
+You want to run a [synapse home server](https://matrix-org.github.io/synapse/latest/welcome_and_overview.html).
+The `homeserver.yaml` file needs a bunch of credentials:
+* `registration_shared_secret`
+* `macaroon_secret_key`
+* `form_secret`
+
+Also, you want to use a `postgres` database with the server, so you need a postgres config section.
+This section has a username and password that `synapse` will use to connect to `postgres`.
+Also, you have an init script for your `postgres` container which creates the database, the user, and the correct `GRANT` statements.
+
+## Solution
+
+Your filesystem in your `docker-compose` repo:
+
+```
+my-docker-services
+├── config
+│   ├── postgres
+    │   └── homeserver_init.sh.template
+    └── synapse
+        └── homeserver.yaml.template
+├── .gitignore
+├── docker-compose.yaml
+├── key.public
+├── key.private
+├── secrets.yaml
+└── secrets.encrypted
+```
+
+To create `key.private`:
+
+```bash
+$ age-keygen -o key.private
+Public key: age<pubkey>
+```
+
+Save the public key (beginning with `age` to `key.public`).
+Your `secrets.yaml` file will look like so:
+
+```yaml
+SYNAPSE_POSTGRES_USER: synapse
+SYNAPSE_POSTGRES_PASSWORD: password
+SYNAPSE_REGISTRATION_SHARED_SECRET: secret
+SYNAPSE_MACAROON_SECRET_KEY: secret2
+SYNAPSE_FORM_SECRET: secret3
+```
+
+In your `.gitignore`, ignore `key.private` and `secrets.yaml`:
+
+```gitignore
+key.private
+secrets.yaml
+```
+
+You will need to manually transfer the `key.private` file to where you run your service.
+Keep it safe -- if you lose it, you'll loose access to your secrets.
+
+To generate the `secrets.encrypted` file:
+
+```bash
+$ age -R key.public -o secrets.encrypted --armor secrets.yaml
+```
+
+Your `*.template` files will use [python's `string.Template`](https://docs.python.org/3/library/string.html#template-strings) syntax.
+For example, `homeserver.yaml.template`:
+
+```yaml
+
+registration_shared_secret: $SYNAPSE_REGISTRATION_SHARED_SECRET
+macaroon_secret_key: $SYNAPSE_MACAROON_SECRET_KEY
+form_secret: $SYNAPSE_FORM_SECRET
+database:
+  name: psycopg2
+  txn_limit: 10000
+  args:
+    user: $SYNAPSE_POSTGRES_USER
+    password: $SYNAPSE_POSTGRES_PASSWORD
+    database: synapse
+    host: localhost
+    port: 5432
+```
+
+Finally, your `docker-compose.yaml` will look like so:
+
+```yaml
+version: '3.9'
+services:
+  dcsm:
+    image: ghcr.io/igor47/dcsm:latest
+    environment:
+      - DCSM_KEYFILE=/config/key.private
+      - DCSM_SECRET_FILE=/config/secrets.encrypted
+      - DSCM_TEMPLATE_DIR=/config
+    volumes:
+      - .:/config
+  postgres:
+    image: docker.io/library/postgres:12-alpine
+    depends_on:
+      dcsm:
+        condition: service_healthy
+    volumes:
+      - config/postgres:/config
+  synapse:
+    image: docker.io/matrixdotorg/synapse:latest
+    depends_on:
+      dcsm:
+        condition: service_healthy
+    volumes:
+      - config/synapse/homeserver.yaml:/data/homeserver.yaml
+```
+
+## How to NOT manage `docker compose` secrets
+
+### Store them as plain text in your `docker compose` repo
+
+You might think this is okay because your services are running on private networks or are otherwise inaccessible to the public.
+Well -- you never know!
+You might accidentally expose your service and having credentials makes it that much easier to do nefarious things.
+
+You also might think that this is okay because your repo is private.
+I would encourage you to keep your repo public!
+This enables others to learn from your work and to contribute back to you.
+
+### Manage them out-of-band
+
+The other main option is to create and store all your secrets outside of your `docker compose` repo.
+This makes it hard to know exactly what you did to bring up the service.
+At some point, so much stuff has leaked out of the `docker compose` repo that it's not worth it to have the repo at all.
