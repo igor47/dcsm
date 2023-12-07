@@ -47,6 +47,16 @@ The `key.private` file should be kept secret and should not be checked into your
 The `.template` files will be processed using [python's `string.Template`](https://docs.python.org/3/library/string.html#template-strings) syntax.
 We will replace any variables found in your `secrets.encrypted` file with the corresponding values.
 
+## Environment Variables
+
+The following environment variables are required and must be specified:
+
+* `DCSM_KEYFILE` -- path to the private key file inside the container
+* `DCSM_SECRET_FILE` -- path to the encrypted secrets file inside the container
+
+Additionally, you may specify any number of environment variables beginning with `DCSM_TEMPLATE_`.
+These should point to directories inside the container.
+In those dirctories, `dscn` will find `*.template` files and process them, replacing `$VAR` with the value of the secret `VAR`.
 
 ## Example
 
@@ -178,3 +188,11 @@ This enables others to learn from your work and to contribute back to you.
 The other main option is to create and store all your secrets outside of your `docker compose` repo.
 This makes it hard to know exactly what you did to bring up the service.
 At some point, so much stuff has leaked out of the `docker compose` repo that it's not worth it to have the repo at all.
+
+## Dev
+
+### Requirements
+
+Prod requirements are stored in `requirements.txt`.
+Additional dev mode requirements are in `requirements-dev.txt`.
+Use `pip sync requirements.txt` to put your environment into prod mode.

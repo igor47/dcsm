@@ -1,0 +1,14 @@
+black==23.11.0
+build==1.0.3
+click==8.1.7
+mypy==1.7.1
+mypy-extensions==1.0.0
+packaging==23.2
+pathspec==0.11.2
+pip-tools==7.3.0
+platformdirs==4.1.0
+pyproject_hooks==1.0.0
+PyYAML==6.0.1
+setuptools==69.0.2
+typing_extensions==4.8.0
+wheel==0.42.0
