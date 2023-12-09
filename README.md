@@ -70,7 +70,7 @@ Also, you want to use a `postgres` database with the server, so you need a postg
 This section has a username and password that `synapse` will use to connect to `postgres`.
 Also, you have an init script for your `postgres` container which creates the database, the user, and the correct `GRANT` statements.
 
-## Solution
+### Solution
 
 Your filesystem in your `docker-compose` repo:
 
@@ -83,7 +83,6 @@ my-docker-services
         └── homeserver.yaml.template
 ├── .gitignore
 ├── docker-compose.yaml
-├── key.public
 ├── key.private
 ├── secrets.yaml
 └── secrets.encrypted
@@ -93,10 +92,8 @@ To create `key.private`:
 
 ```bash
 $ age-keygen -o key.private
-Public key: age<pubkey>
 ```
 
-Save the public key (beginning with `age` to `key.public`).
 Your `secrets.yaml` file will look like so:
 
 ```yaml
@@ -120,7 +117,7 @@ Keep it safe -- if you lose it, you'll loose access to your secrets.
 To generate the `secrets.encrypted` file:
 
 ```bash
-$ age -R key.public -o secrets.encrypted --armor secrets.yaml
+$ age --encrypt --armor --identity key.private --output secrets.encrypted secrets.yaml
 ```
 
 Your `*.template` files will use [python's `string.Template`](https://docs.python.org/3/library/string.html#template-strings) syntax.
