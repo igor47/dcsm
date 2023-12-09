@@ -20,7 +20,7 @@ Add this service to your `docker-compose.yaml` file:
     environment:
       - DCSM_KEYFILE=/config/key.private
       - DCSM_SECRET_FILE=/config/secrets.encrypted
-      - DSCM_TEMPLATE_DIR=/config
+      - DCSM_TEMPLATE_DIR=/config
     volumes:
       - .:/config
 ```
@@ -148,7 +148,7 @@ services:
     environment:
       - DCSM_KEYFILE=/config/key.private
       - DCSM_SECRET_FILE=/config/secrets.encrypted
-      - DSCM_TEMPLATE_DIR=/config
+      - DCSM_TEMPLATE_DIR=/config
     volumes:
       - .:/config
   postgres:
