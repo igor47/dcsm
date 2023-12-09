@@ -1,0 +1,19 @@
+version: '3.9'
+services:
+  dcsm:
+    build: ../
+    environment:
+      - DCSM_KEYFILE=/secrets/key.private
+      - DCSM_SECRET_FILE=/secrets/secrets.encrypted
+      - DCSM_TEMPLATE_DIR=/templates
+    volumes:
+      - ./secrets:/secrets
+      - ./templates:/templates
+  tester:
+    image: bash:latest
+    command: ["bash", "/templates/confirm.sh"]
+    depends_on:
+      dcsm:
+        condition: service_completed_successfully
+    volumes:
+      - ./templates:/templates

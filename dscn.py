@@ -61,6 +61,7 @@ def process_dir(dirname: str, secrets: Dict[str, Any]) -> int:
     """Process all template files in the directory"""
     processed = 0
     for root, dirs, files in os.walk(dirname):
+        print(files)
         for filename in files:
             if filename.endswith('.template'):
                 process_file(os.path.join(root, filename), secrets)

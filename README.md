@@ -36,8 +36,7 @@ Services that depend on secrets to be injected by `dcsm` should depend on the `d
     image: my_image
     depends_on:
       dcsm:
-        condition: service_healthy
-
+        condition: service_completed_successfully
 ```
 
 The `secret.encrypted` file is a YAML file encrypted using [age](https://age-encryption.org/).
@@ -156,14 +155,14 @@ services:
     image: docker.io/library/postgres:12-alpine
     depends_on:
       dcsm:
-        condition: service_healthy
+        condition: service_completed_successfully
     volumes:
       - config/postgres:/config
   synapse:
     image: docker.io/matrixdotorg/synapse:latest
     depends_on:
       dcsm:
-        condition: service_healthy
+        condition: service_completed_successfully
     volumes:
       - config/synapse/homeserver.yaml:/data/homeserver.yaml
 ```
