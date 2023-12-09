@@ -1,11 +1,13 @@
 import os
 import os.path
+import string
 import subprocess
 import sys
 import time
 from typing import Any, Dict
 
 import yaml
+
 
 def sleep() -> None:
     """Sleep forever seconds"""
@@ -43,10 +45,44 @@ def get_secrets() -> Dict[str, Any]:
 
     return secrets
 
+def process_file(filename: str, secrets: Dict[str, Any]) -> None:
+    """Process a template file, inserting secrets"""
+    dest = filename[:-len('.template')]
+    with open(filename, 'r') as template:
+        try:
+            result = string.Template(template.read()).substitute(secrets)
+        except Exception as e:
+            raise ValueError(f'error processing {filename}: {e}')
+
+        with (open(dest, 'w')) as output:
+            output.write(result)
+
+def process_dir(dirname: str, secrets: Dict[str, Any]) -> int:
+    """Process all template files in the directory"""
+    processed = 0
+    for root, dirs, files in os.walk(dirname):
+        for filename in files:
+            if filename.endswith('.template'):
+                process_file(os.path.join(root, filename), secrets)
+                processed += 1
+
+    return processed
+
 def run() -> None:
     """Process all template files"""
     secrets = get_secrets()
-    print(secrets)
+
+    processed = 0
+    for key, dirname in os.environ.items():
+        if not key.startswith('DCSM_TEMPLATE_'):
+            continue
+
+        if not os.path.exists(dirname):
+            raise ValueError(f'DCSM_TEMPLATE_{key} {dirname} does not exist')
+
+        processed += process_dir(dirname, secrets)
+
+    print(f"successfully processed {processed} template files")
 
 def main() -> None:
     """DSCN entry point"""

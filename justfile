@@ -9,4 +9,5 @@ test-decrypt:
   set -euo pipefail
   export DCSM_KEYFILE=example/key.private
   export DCSM_SECRET_FILE=example/secrets.encrypted
+  export DCSM_TEMPLATE_DIR1=example/templates
   python3 ./dscn.py decrypt

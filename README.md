@@ -56,7 +56,7 @@ The following environment variables are required and must be specified:
 
 Additionally, you may specify any number of environment variables beginning with `DCSM_TEMPLATE_`.
 These should point to directories inside the container.
-In those dirctories, `dscn` will find `*.template` files and process them, replacing `$VAR` with the value of the secret `VAR`.
+In those directories, `dscn` will find `*.template` files and process them, replacing `$VAR` with the value of the secret `VAR`.
 
 ## Example
 
