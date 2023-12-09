@@ -86,11 +86,11 @@ def run() -> None:
     print(f"successfully processed {processed} template files")
 
 def main() -> None:
-    """DSCN entry point"""
+    """DCSN entry point"""
     try:
         task = sys.argv[1]
     except IndexError:
-        print("Usage: dscn <sleep|decrypt>")
+        print("Usage: dcsn <sleep|decrypt>")
         sys.exit(1)
 
     if task == "sleep":
@@ -102,7 +102,7 @@ def main() -> None:
     elif task == "decrypt":
         run()
     else:
-        print("Usage: dscn <sleep|decrypt>")
+        print("Usage: dcsn <sleep|decrypt>")
         sys.exit(1)
 
 if __name__ == "__main__":

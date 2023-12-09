@@ -7,8 +7,8 @@ The git repo is my [configuration-as-code/infrastructure-as-code](https://www.cl
 
 A common issue with such projects -- <b>what the heck do you do with the secrets?</b>
 
-`dscn` allows you to store your secrets, encrypted, in a file in the git repo.
-When your `docker compose` starts, `dscn` will decrypt the secrets and inject them into any `*.template` files in your repo.
+`dcsn` allows you to store your secrets, encrypted, in a file in the git repo.
+When your `docker compose` starts, `dcsn` will decrypt the secrets and inject them into any `*.template` files in your repo.
 
 ## Usage
 
@@ -55,7 +55,7 @@ The following environment variables are required and must be specified:
 
 Additionally, you may specify any number of environment variables beginning with `DCSM_TEMPLATE_`.
 These should point to directories inside the container.
-In those directories, `dscn` will find `*.template` files and process them, replacing `$VAR` with the value of the secret `VAR`.
+In those directories, `dcsn` will find `*.template` files and process them, replacing `$VAR` with the value of the secret `VAR`.
 
 ## Example
 

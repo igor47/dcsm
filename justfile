@@ -10,7 +10,7 @@ test-decrypt:
   export DCSM_KEYFILE=example/key.private
   export DCSM_SECRET_FILE=example/secrets.encrypted
   export DCSM_TEMPLATE_DIR1=example/templates
-  python3 ./dscn.py decrypt
+  python3 ./dcsn.py decrypt
 
 docker-decrypt: build
   docker run --rm --env DCSM_KEYFILE=/run/secrets/key.private --env DCSM_SECRET_FILE=/run/secrets/secrets.encrypted --env DCSM_TEMPLATE_DIR1=/run/secrets/templates --volume ${PWD}/example:/run/secrets dcsn:latest

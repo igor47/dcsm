@@ -3,6 +3,6 @@ RUN apk add --no-cache age
 WORKDIR /srv
 COPY requirements.txt .
 RUN pip install -r requirements.txt
-COPY dscn.py .
-ENTRYPOINT ["python3", "dscn.py", "decrypt"]
+COPY dcsn.py .
+ENTRYPOINT ["python3", "dcsn.py", "decrypt"]
 
