@@ -7,8 +7,8 @@ The git repo is my [configuration-as-code/infrastructure-as-code](https://www.cl
 
 A common issue with such projects -- <b>what the heck do you do with the secrets?</b>
 
-`dcsn` allows you to store your secrets, encrypted, in a file in the git repo.
-When your `docker compose` starts, `dcsn` will decrypt the secrets and inject them into any `*.template` files in your repo.
+`dcsm` allows you to store your secrets, encrypted, in a file in the git repo.
+When your `docker compose` starts, `dcsm` will decrypt the secrets and inject them into any `*.template` files in your repo.
 
 ## Usage
 
@@ -54,10 +54,12 @@ The following environment variables are required and must be specified:
 * `DCSM_KEYFILE` -- path to the private key file inside the container
 * `DCSM_SECRETS_FILE` -- path to the encrypted secrets file inside the container
 
+You may optionally specify a `DCSM_SOURCE_FILE` environment variable.
+This will allow you to invoke `dcsm` with the `encrypt`/`decrypt` commands to help you manage your plaintext/encrypted secrets files.
 
 Additionally, you may specify any number of environment variables beginning with `DCSM_TEMPLATE_`.
 These should point to directories inside the container.
-In those directories, `dcsn` will find `*.template` files and process them, replacing `$VAR` with the value of the secret `VAR`.
+In those directories, `dcsm` will find `*.template` files and process them, replacing `$VAR` with the value of the secret `VAR`.
 
 ## Example
 

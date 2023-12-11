@@ -1,14 +1,15 @@
 version: '3.9'
 services:
   dcsm:
-    build: ../
+    build: .
     environment:
-      - DCSM_KEYFILE=/secrets/key.private
-      - DCSM_SECRETS_FILE=/secrets/secrets.encrypted
-      - DCSM_TEMPLATE_DIR=/templates
+      - DCSM_KEYFILE=/example/key.private
+      - DCSM_SECRETS_FILE=/example/secrets.encrypted
+      - DCSM_SOURCE_FILE=/example/secrets.yaml
+      - DCSM_TEMPLATE_DIR=/example/templates
     volumes:
-      - ./secrets:/secrets
-      - ./templates:/templates
+      - ./example:/example
+
   tester:
     image: bash:latest
     command: ["bash", "/templates/confirm.sh"]

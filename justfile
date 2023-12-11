@@ -2,7 +2,10 @@ build:
   docker build . -t dcsn:latest
 
 encrypt:
-  age --encrypt --armor --identity example/key.private --output example/secrets.encrypted example/secrets.yaml
+  docker compose run --build --rm dcsm encrypt
+
+decrypt:
+  docker compose run --build --rm dcsm decrypt
 
 test-run:
   #!/usr/bin/env bash

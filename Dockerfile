@@ -4,5 +4,6 @@ WORKDIR /srv
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY dcsn.py .
-ENTRYPOINT ["python3", "dcsn.py", "decrypt"]
+ENTRYPOINT ["python3", "dcsn.py"]
+CMD ["run"]
 

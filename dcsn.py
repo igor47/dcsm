@@ -1,40 +1,70 @@
+import datetime
 import os
 import os.path
 import string
 import subprocess
 import sys
-import time
-from typing import Any, Dict
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 import yaml
 
+@dataclass
+class FileInfo:
+    """Info about a specific file we use here"""
+    path: Path
+    modified: Optional[datetime.datetime] = None
 
-def sleep() -> None:
-    """Sleep forever seconds"""
-    while True:
-        time.sleep(1)
+    @classmethod
+    def from_env(cls, var: str) -> Optional['FileInfo']:
+        """Loads file info from given enviroment variable"""
+        name = os.environ.get(var)
+        if not name:
+            return None
 
-def get_secrets() -> Dict[str, Any]:
+        file = cls(path=Path(name).resolve())
+        if file.exists:
+            file.modified = datetime.datetime.fromtimestamp(
+                file.path.stat().st_mtime
+            )
+
+        return file
+
+    @property
+    def exists(self) -> bool:
+        """Does this file exist?"""
+        return self.path.is_file()
+
+    def __str__(self) -> str:
+        return str(self.path)
+
+@dataclass
+class Files:
+    """Info about all of our necessary files"""
+    keyfile: Optional[FileInfo] = field(
+        default_factory=lambda: FileInfo.from_env('DCSM_KEYFILE'))
+    secrets: Optional[FileInfo] = field(
+        default_factory=lambda: FileInfo.from_env('DCSM_SECRETS_FILE'))
+    source: Optional[FileInfo] = field(
+        default_factory=lambda: FileInfo.from_env('DCSM_SOURCE_FILE'))
+
+def get_secrets(files: Files) -> Dict[str, Any]:
     """Return the secrets as a dictionary"""
-    keyfile = os.environ.get('DCSM_KEYFILE')
-    secrets_file = os.environ.get('DCSM_SECRETS_FILE')
+    assert files.keyfile
 
-    if not keyfile or not secrets_file:
-        raise ValueError("DCSM_KEYFILE and DCSM_SECRETS_FILE are required")
-
-    keyfile, secrets_file = os.path.abspath(keyfile), os.path.abspath(secrets_file)
-    if not os.path.exists(keyfile):
-        raise ValueError(f'DCSM_KEYFILE {keyfile} does not exist')
-    if not os.path.exists(secrets_file):
-        raise ValueError(f'DCSM_SECRETS_FILE {secrets_file} does not exist')
+    if not files.secrets:
+        raise ValueError("variable DCSM_SECRETS_FILE is required")
+    if not files.secrets.exists:
+        raise ValueError(f'DCSM_SECRETS_FILE {files.secrets} does not exist')
 
     process = subprocess.run(
-        ['age', '--decrypt', '--identity', keyfile, secrets_file],
+        ['age', '--decrypt', '--identity', files.keyfile.path, files.secrets.path],
         env={},
         capture_output=True,
     )
     if process.returncode != 0:
-        raise ValueError(f'age failed: {process.stderr.decode("utf-8")}')
+        raise ValueError(f'age decryption failed: {process.stderr.decode("utf-8")}')
 
     output = process.stdout.decode('utf-8')
     secrets: Dict[str, Any] = yaml.safe_load(output)
@@ -68,9 +98,72 @@ def process_dir(dirname: str, secrets: Dict[str, Any]) -> int:
 
     return processed
 
-def run() -> None:
+def encrypt(files: Files) -> None:
+    """Encrypt the source file into the secrets file"""
+    assert files.keyfile
+
+    if not files.secrets:
+        raise ValueError("variable DCSM_SECRETS_FILE is required")
+
+    if not files.source:
+        raise ValueError("variable DCSM_SOURCE_FILE is required")
+    if not files.source.exists:
+        raise ValueError(f'DCSM_SOURCE_FILE {files.source} does not exist')
+
+    source_is_newer = False
+    if not files.secrets.exists:
+        source_is_newer = True
+    elif files.source.modified and files.secrets.modified:
+        source_is_newer = files.source.modified > files.secrets.modified
+
+    if not source_is_newer:
+        raise ValueError('encrypted secrets are newer than secrets source; will not overwrite')
+
+    process = subprocess.run(
+        ['age', '--encrypt', '--identity', files.keyfile.path, '--output', files.secrets.path, files.source.path],
+        env={},
+        capture_output=True,
+    )
+    if process.returncode != 0:
+        raise ValueError(f'age encryption failed: {process.stderr.decode("utf-8")}')
+
+    print(f"successfully encrypted source file {files.source.path} => {files.secrets.path}")
+
+def decrypt(files: Files) -> None:
+    """Decrypt the secrets file back out to the source file"""
+    assert files.keyfile
+
+    if not files.source:
+        raise ValueError("variable DCSM_SOURCE_FILE is required")
+
+    if not files.secrets:
+        raise ValueError("variable DCSM_SECRETS_FILE is required")
+    if not files.secrets.exists:
+        raise ValueError(f'DCSM_SECRETS_FILE {files.source} does not exist')
+
+    secrets_newer = False
+    if not files.source.exists:
+        secrets_newer = True
+    elif files.source.modified and files.secrets.modified:
+        secrets_newer = files.secrets.modified > files.source.modified
+
+    if not secrets_newer:
+        raise ValueError('secret source file is newer than encrypted secrets file; will not overwrite')
+
+    process = subprocess.run(
+        ['age', '--decrypt', '--identity', files.keyfile.path, '--output', files.source.path, files.secrets.path],
+        env={},
+        capture_output=True,
+    )
+    if process.returncode != 0:
+        raise ValueError(f'age decryption failed: {process.stderr.decode("utf-8")}')
+
+    print(f"successfully decrypted secrets file {files.secrets.path} -> {files.source.path}")
+    print("don't forget to re-encrypt and remove the source file!")
+
+def run(files: Files) -> None:
     """Process all template files"""
-    secrets = get_secrets()
+    secrets = get_secrets(files)
 
     processed = 0
     for key, dirname in os.environ.items():
@@ -86,22 +179,28 @@ def run() -> None:
 
 def main() -> None:
     """DCSN entry point"""
+    usage = "Usage: dcsn <run|encrypt|decrypt>"
     try:
         task = sys.argv[1]
     except IndexError:
-        print("Usage: dcsn <sleep|decrypt>")
+        print(usage)
         sys.exit(1)
 
-    if task == "sleep":
-        try:
-            sleep()
-        except KeyboardInterrupt:
-            print("Exiting...")
-            sys.exit(0)
+    # we always need the keyfile no matter what we're doing
+    files = Files()
+    if not files.keyfile:
+        raise ValueError("variable DCSM_KEYFILE is required")
+    if not files.keyfile.exists:
+        raise ValueError(f'DCSM_KEYFILE {files.keyfile} does not exist')
+
+    if task == "run":
+        run(files)
+    elif task == "encrypt":
+        encrypt(files)
     elif task == "decrypt":
-        run()
+        decrypt(files)
     else:
-        print("Usage: dcsn <sleep|decrypt>")
+        print(usage)
         sys.exit(1)
 
 if __name__ == "__main__":
