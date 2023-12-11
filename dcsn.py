@@ -17,19 +17,19 @@ def sleep() -> None:
 def get_secrets() -> Dict[str, Any]:
     """Return the secrets as a dictionary"""
     keyfile = os.environ.get('DCSM_KEYFILE')
-    secret_file = os.environ.get('DCSM_SECRET_FILE')
+    secrets_file = os.environ.get('DCSM_SECRETS_FILE')
 
-    if not keyfile or not secret_file:
-        raise ValueError("DCSM_KEYFILE and DCSM_SECRET_FILE are required")
+    if not keyfile or not secrets_file:
+        raise ValueError("DCSM_KEYFILE and DCSM_SECRETS_FILE are required")
 
-    keyfile, secret_file = os.path.abspath(keyfile), os.path.abspath(secret_file)
+    keyfile, secrets_file = os.path.abspath(keyfile), os.path.abspath(secrets_file)
     if not os.path.exists(keyfile):
         raise ValueError(f'DCSM_KEYFILE {keyfile} does not exist')
-    if not os.path.exists(secret_file):
-        raise ValueError(f'DCSM_SECRET_FILE {secret_file} does not exist')
+    if not os.path.exists(secrets_file):
+        raise ValueError(f'DCSM_SECRETS_FILE {secrets_file} does not exist')
 
     process = subprocess.run(
-        ['age', '--decrypt', '--identity', keyfile, secret_file],
+        ['age', '--decrypt', '--identity', keyfile, secrets_file],
         env={},
         capture_output=True,
     )
@@ -45,7 +45,7 @@ def get_secrets() -> Dict[str, Any]:
 
     return secrets
 
-def process_file(filename: str, secrets: Dict[str, Any]) -> None:
+def process_template(filename: str, secrets: Dict[str, Any]) -> None:
     """Process a template file, inserting secrets"""
     dest = filename[:-len('.template')]
     with open(filename, 'r') as template:
@@ -63,7 +63,7 @@ def process_dir(dirname: str, secrets: Dict[str, Any]) -> int:
     for root, dirs, files in os.walk(dirname):
         for filename in files:
             if filename.endswith('.template'):
-                process_file(os.path.join(root, filename), secrets)
+                process_template(os.path.join(root, filename), secrets)
                 processed += 1
 
     return processed

@@ -19,7 +19,7 @@ Add this service to your `docker-compose.yaml` file:
     image: ghcr.io/igor47/dcsm:latest
     environment:
       - DCSM_KEYFILE=/config/key.private
-      - DCSM_SECRET_FILE=/config/secrets.encrypted
+      - DCSM_SECRETS_FILE=/config/secrets.encrypted
       - DCSM_TEMPLATE_DIR=/config
     volumes:
       - .:/config
@@ -27,7 +27,7 @@ Add this service to your `docker-compose.yaml` file:
 
 Here, we mount the entire directory as a volume to `/config`.
 Any `*.template` files in the directory will be processed by `dcsm` and the result will be written to the same path without the `.template` suffix.
-You can then mount the resulting file to your services.
+You can then mount the resulting file into your service containers.
 
 Services that depend on secrets to be injected by `dcsm` should depend on the `dcsm` service:
 
@@ -39,19 +39,21 @@ Services that depend on secrets to be injected by `dcsm` should depend on the `d
         condition: service_completed_successfully
 ```
 
-The `secret.encrypted` file is a YAML file encrypted using [age](https://age-encryption.org/).
-The `key.private` file is the private key that corresponds to the public key used to encrypt the `secrets.encrypted` file.
+The `secrets.yaml.encrypted` file is a YAML file encrypted using [age](https://age-encryption.org/).
+The `key.private` file is the key used to encrypt the `secrets.yaml.encrypted` file.
+Create `key.private` using `age-keygen` (see the [Example section](#Example) for a full walk-through).
 The `key.private` file should be kept secret and should not be checked into your git repo.
 
 The `.template` files will be processed using [python's `string.Template`](https://docs.python.org/3/library/string.html#template-strings) syntax.
-We will replace any variables found in your `secrets.encrypted` file with the corresponding values.
+We will replace any variables (strings beginning with `$`) found in the templates with secrets found in your `secrets.encrypted` file.
 
 ## Environment Variables
 
 The following environment variables are required and must be specified:
 
 * `DCSM_KEYFILE` -- path to the private key file inside the container
-* `DCSM_SECRET_FILE` -- path to the encrypted secrets file inside the container
+* `DCSM_SECRETS_FILE` -- path to the encrypted secrets file inside the container
+
 
 Additionally, you may specify any number of environment variables beginning with `DCSM_TEMPLATE_`.
 These should point to directories inside the container.
@@ -147,7 +149,7 @@ services:
     image: ghcr.io/igor47/dcsm:latest
     environment:
       - DCSM_KEYFILE=/config/key.private
-      - DCSM_SECRET_FILE=/config/secrets.encrypted
+      - DCSM_SECRETS_FILE=/config/secrets.encrypted
       - DCSM_TEMPLATE_DIR=/config
     volumes:
       - .:/config

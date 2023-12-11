@@ -4,7 +4,7 @@ services:
     build: ../
     environment:
       - DCSM_KEYFILE=/secrets/key.private
-      - DCSM_SECRET_FILE=/secrets/secrets.encrypted
+      - DCSM_SECRETS_FILE=/secrets/secrets.encrypted
       - DCSM_TEMPLATE_DIR=/templates
     volumes:
       - ./secrets:/secrets
