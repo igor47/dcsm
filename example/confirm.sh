@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Path to the file to check
-file_path="/templates/test"
+file_path="/example/templates/test"
 
 # The expected content
 expected_content="expected string"

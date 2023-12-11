@@ -12,9 +12,9 @@ services:
 
   tester:
     image: bash:latest
-    command: ["bash", "/templates/confirm.sh"]
+    command: ["bash", "/example/confirm.sh"]
     depends_on:
       dcsm:
         condition: service_completed_successfully
     volumes:
-      - ./templates:/templates
+      - ./example:/example

@@ -1,5 +1,3 @@
 .direnv
 
 example/templates
-e2e/secrets
-e2e/templates

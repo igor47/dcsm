@@ -1,7 +1,6 @@
 .direnv
 
 docker-compose.yml
-e2e/
 example/
 justfile
 README.md
