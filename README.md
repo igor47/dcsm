@@ -44,8 +44,8 @@ The `key.private` file is the key used to encrypt the `secrets.yaml.encrypted` f
 Create `key.private` using `age-keygen` (see the [Example section](#Example) for a full walk-through).
 The `key.private` file should be kept secret and should not be checked into your git repo.
 
-The `.template` files will be processed using [python's `string.Template`](https://docs.python.org/3/library/string.html#template-strings) syntax.
-We will replace any variables (strings beginning with `$`) found in the templates with secrets found in your `secrets.encrypted` file.
+Inside `.template` files, use your secret vars like so: `$DCSM{secret}`.
+Here, that string will be replaced with the value of the secret `secret` found in your `secrets.encrypted` file.
 
 ## Environment Variables
 
@@ -59,7 +59,7 @@ This will allow you to invoke `dcsm` with the `encrypt`/`decrypt` commands to he
 
 Additionally, you may specify any number of environment variables beginning with `DCSM_TEMPLATE_`.
 These should point to directories inside the container.
-In those directories, `dcsm` will find `*.template` files and process them, replacing `$VAR` with the value of the secret `VAR`.
+In those directories, `dcsm` will find `*.template` files and process them, replacing `$DCSM{VAR}` with the value of the secret `VAR`.
 
 ## Example
 
@@ -128,15 +128,15 @@ For example, `homeserver.yaml.template`:
 
 ```yaml
 
-registration_shared_secret: $SYNAPSE_REGISTRATION_SHARED_SECRET
-macaroon_secret_key: $SYNAPSE_MACAROON_SECRET_KEY
-form_secret: $SYNAPSE_FORM_SECRET
+registration_shared_secret: $DCSM{SYNAPSE_REGISTRATION_SHARED_SECRET}
+macaroon_secret_key: $DCSM{SYNAPSE_MACAROON_SECRET_KEY}
+form_secret: $DCSM{SYNAPSE_FORM_SECRET}
 database:
   name: psycopg2
   txn_limit: 10000
   args:
-    user: $SYNAPSE_POSTGRES_USER
-    password: $SYNAPSE_POSTGRES_PASSWORD
+    user: $DCSM{SYNAPSE_POSTGRES_USER}
+    password: $DCSM{SYNAPSE_POSTGRES_PASSWORD}
     database: synapse
     host: localhost
     port: 5432

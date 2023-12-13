@@ -15,5 +15,9 @@ test:
   set -euo pipefail
   # remove dangling result from previous test
   rm -rf example/templates/test
-  # now run the test
+  # type tests
+  mypy .
+  # run unit tests
+  python test.py
+  # now run e2e test
   docker compose up --build --remove-orphans --force-recreate

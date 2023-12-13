@@ -7,6 +7,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
+import re
 
 import yaml
 
@@ -49,6 +50,17 @@ class Files:
     source: Optional[FileInfo] = field(
         default_factory=lambda: FileInfo.from_env('DCSM_SOURCE_FILE'))
 
+class DCSMTemplate(string.Template):
+    delimiter = '$DCSM'
+    flags = re.RegexFlag(value=0)
+
+    pattern = r"""
+        (?P<escaped>\$\$DCSM) |
+        (?:\$DCSM_(?P<named>[A-Z][A-Z0-9_]*)) |
+        (?:\$DCSM\{(?P<braced>[a-zA-Z][a-zA-Z0-9_]*)\}) |
+        (?P<invalid>$DCSM(?:\{\})?)
+    """ # type: ignore
+
 def get_secrets(files: Files) -> Dict[str, Any]:
     """Return the secrets as a dictionary"""
     assert files.keyfile
@@ -80,7 +92,7 @@ def process_template(filename: str, secrets: Dict[str, Any]) -> None:
     dest = filename[:-len('.template')]
     with open(filename, 'r') as template:
         try:
-            result = string.Template(template.read()).substitute(secrets)
+            result = DCSMTemplate(template.read()).substitute(secrets)
         except Exception as e:
             raise ValueError(f'error processing {filename}: {e}')
 

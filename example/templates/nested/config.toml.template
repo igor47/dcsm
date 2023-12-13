@@ -1,5 +1,5 @@
 # vim: set filetype=toml:
 
 [stuff]
-key = $ANOTHER_SECRET
-long_key = """$LONG_SECRET"""
+key = $DCSM{ANOTHER_SECRET}
+long_key = """$DCSM{LONG_SECRET}"""
