@@ -87,25 +87,31 @@ def get_secrets(files: Files) -> Dict[str, Any]:
 
     return secrets
 
-def process_template(filename: str, secrets: Dict[str, Any]) -> None:
+def process_template(source: Path, secrets: Dict[str, Any]) -> None:
     """Process a template file, inserting secrets"""
-    dest = filename[:-len('.template')]
-    with open(filename, 'r') as template:
+    dest = source.with_suffix('')
+    with source.open() as template:
         try:
             result = DCSMTemplate(template.read()).substitute(secrets)
         except Exception as e:
-            raise ValueError(f'error processing {filename}: {e}')
+            raise ValueError(f'error processing {source}: {e}')
 
-        with (open(dest, 'w')) as output:
+        with dest.open('w') as output:
             output.write(result)
+
+        # copy ownership and permissions from source to dest
+        stat = source.stat()
+        os.chown(dest, stat.st_uid, stat.st_gid)
+        os.chmod(dest, stat.st_mode)
 
 def process_dir(dirname: str, secrets: Dict[str, Any]) -> int:
     """Process all template files in the directory"""
     processed = 0
     for root, dirs, files in os.walk(dirname):
+        dir = Path(root).absolute()
         for filename in files:
             if filename.endswith('.template'):
-                process_template(os.path.join(root, filename), secrets)
+                process_template(dir.joinpath(filename), secrets)
                 processed += 1
 
     return processed
