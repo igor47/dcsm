@@ -178,8 +178,8 @@ def run(files: Files) -> None:
     print(f"successfully processed {processed} template files")
 
 def main() -> None:
-    """DCSN entry point"""
-    usage = "Usage: dcsn <run|encrypt|decrypt>"
+    """DCSM entry point"""
+    usage = "Usage: dcsm <run|encrypt|decrypt>"
     try:
         task = sys.argv[1]
     except IndexError:

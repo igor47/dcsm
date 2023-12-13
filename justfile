@@ -1,5 +1,5 @@
 build:
-  docker build . -t dcsn:latest
+  docker build . -t dcsm:latest
 
 encrypt:
   docker compose run --build --rm dcsm encrypt

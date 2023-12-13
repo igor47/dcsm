@@ -3,7 +3,7 @@ RUN apk add --no-cache age
 WORKDIR /srv
 COPY requirements.txt .
 RUN pip install -r requirements.txt
-COPY dcsn.py .
-ENTRYPOINT ["python3", "dcsn.py"]
+COPY dcsm.py .
+ENTRYPOINT ["python3", "dcsm.py"]
 CMD ["run"]
 
