@@ -191,6 +191,9 @@ At some point, so much stuff has leaked out of the `docker compose` repo that it
 
 ## Dev
 
+Most dev tasks are documented in code in the `Justfile`.
+Install [`just`](https://just.systems/man/en/chapter_4.html) and run `just` to see the available tasks.
+
 ### Requirements
 
 Prod requirements are stored in `requirements.txt`.
