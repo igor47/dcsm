@@ -1,6 +1,9 @@
 build:
   docker build . -t dcsm:latest
 
+keygen:
+  docker compose run --build --rm dcsm keygen
+
 encrypt:
   docker compose run --build --rm dcsm encrypt
 

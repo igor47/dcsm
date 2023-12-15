@@ -50,6 +50,27 @@ class Files:
     source: Optional[FileInfo] = field(
         default_factory=lambda: FileInfo.from_env('DCSM_SOURCE_FILE'))
 
+    def check_set(self, keyfile: bool = False, secrets: bool = False, source: bool = False) -> None:
+        """Check that the given file is set"""
+        if keyfile and not self.keyfile:
+            raise ValueError("variable DCSM_KEYFILE is required")
+        if secrets and not self.secrets:
+            raise ValueError("variable DCSM_SECRETS_FILE is required")
+        if source and not self.source:
+            raise ValueError("variable DCSM_SOURCE_FILE is required")
+
+    def check_exists(self, keyfile: bool = False, secrets: bool = False, source: bool = False) -> None:
+        """Check that the given file exists"""
+        self.check_set(keyfile, secrets, source)
+        assert self.keyfile and self.secrets and self.source
+
+        if keyfile and not self.keyfile.exists:
+            raise ValueError(f'DCSM_KEYFILE {self.keyfile} does not exist')
+        if secrets and not self.secrets.exists:
+            raise ValueError(f'DCSM_SECRETS_FILE {self.secrets} does not exist')
+        if source and not self.source.exists:
+            raise ValueError(f'DCSM_SOURCE_FILE {self.source} does not exist')
+
 class DCSMTemplate(string.Template):
     delimiter = '$DCSM'
     flags = re.RegexFlag(value=0)
@@ -63,12 +84,8 @@ class DCSMTemplate(string.Template):
 
 def get_secrets(files: Files) -> Dict[str, Any]:
     """Return the secrets as a dictionary"""
-    assert files.keyfile
-
-    if not files.secrets:
-        raise ValueError("variable DCSM_SECRETS_FILE is required")
-    if not files.secrets.exists:
-        raise ValueError(f'DCSM_SECRETS_FILE {files.secrets} does not exist')
+    files.check_exists(keyfile=True, secrets=True)
+    assert files.keyfile and files.secrets
 
     process = subprocess.run(
         ['age', '--decrypt', '--identity', files.keyfile.path, files.secrets.path],
@@ -118,15 +135,9 @@ def process_dir(dirname: str, secrets: Dict[str, Any]) -> int:
 
 def encrypt(files: Files) -> None:
     """Encrypt the source file into the secrets file"""
-    assert files.keyfile
-
-    if not files.secrets:
-        raise ValueError("variable DCSM_SECRETS_FILE is required")
-
-    if not files.source:
-        raise ValueError("variable DCSM_SOURCE_FILE is required")
-    if not files.source.exists:
-        raise ValueError(f'DCSM_SOURCE_FILE {files.source} does not exist')
+    files.check_set(secrets=True)
+    files.check_exists(keyfile=True, source=True)
+    assert files.keyfile and files.secrets and files.source
 
     source_is_newer = False
     if not files.secrets.exists:
@@ -149,15 +160,9 @@ def encrypt(files: Files) -> None:
 
 def decrypt(files: Files) -> None:
     """Decrypt the secrets file back out to the source file"""
-    assert files.keyfile
-
-    if not files.source:
-        raise ValueError("variable DCSM_SOURCE_FILE is required")
-
-    if not files.secrets:
-        raise ValueError("variable DCSM_SECRETS_FILE is required")
-    if not files.secrets.exists:
-        raise ValueError(f'DCSM_SECRETS_FILE {files.source} does not exist')
+    files.check_set(source=True)
+    files.check_exists(keyfile=True, secrets=True)
+    assert files.keyfile and files.secrets and files.source
 
     secrets_newer = False
     if not files.source.exists:
@@ -195,9 +200,27 @@ def run(files: Files) -> None:
 
     print(f"successfully processed {processed} template files")
 
+def keygen(files: Files) -> None:
+    """Generate a key file"""
+    files.check_set(keyfile=True)
+    assert files.keyfile
+
+    if files.keyfile.exists:
+        raise ValueError(f'key file {files.keyfile} already exists')
+
+    process = subprocess.run(
+        ['age-keygen', '--output', files.keyfile.path],
+        env={},
+        capture_output=True,
+    )
+    if process.returncode != 0:
+        raise ValueError(f'age-keygen failed: {process.stderr.decode("utf-8")}')
+
+    print(f"successfully generated key file {files.keyfile.path}")
+
 def main() -> None:
     """DCSM entry point"""
-    usage = "Usage: dcsm <run|encrypt|decrypt>"
+    usage = "Usage: dcsm <run|encrypt|decrypt|keygen>"
     try:
         task = sys.argv[1]
     except IndexError:
@@ -206,13 +229,10 @@ def main() -> None:
 
     # we always need the keyfile no matter what we're doing
     files = Files()
-    if not files.keyfile:
-        raise ValueError("variable DCSM_KEYFILE is required")
-    if not files.keyfile.exists:
-        raise ValueError(f'DCSM_KEYFILE {files.keyfile} does not exist')
-
     if task == "run":
         run(files)
+    elif task == "keygen":
+        keygen(files)
     elif task == "encrypt":
         encrypt(files)
     elif task == "decrypt":
