@@ -127,7 +127,7 @@ Unfortunately, `docker compose` will complain about the missing files, even if t
 There are two hacky workarounds (sorry about this!):
 
 1. temporarily edit your `compose.yaml` to remove all services except `dcsm`, then `docker compose dcsm up`
-1. create fake versions of the missing files
+1. create fake versions of the missing files (e.g. `touch postgres.env`)
 
 ## Example
 
