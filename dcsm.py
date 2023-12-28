@@ -104,7 +104,7 @@ def get_secrets(files: Files) -> Dict[str, Any]:
 
     return secrets
 
-def process_template(source: Path, secrets: Dict[str, Any]) -> None:
+def template_file(source: Path, secrets: Dict[str, Any]) -> None:
     """Process a template file, inserting secrets"""
     dest = source.with_suffix('')
     with source.open() as template:
@@ -121,14 +121,14 @@ def process_template(source: Path, secrets: Dict[str, Any]) -> None:
         os.chown(dest, stat.st_uid, stat.st_gid)
         os.chmod(dest, stat.st_mode)
 
-def process_dir(dirname: str, secrets: Dict[str, Any]) -> int:
+def template_dir(dirname: str, secrets: Dict[str, Any]) -> int:
     """Process all template files in the directory"""
     processed = 0
     for root, dirs, files in os.walk(dirname):
         dir = Path(root).absolute()
         for filename in files:
             if filename.endswith('.template'):
-                process_template(dir.joinpath(filename), secrets)
+                template_file(dir.joinpath(filename), secrets)
                 processed += 1
 
     return processed
@@ -196,7 +196,7 @@ def run(files: Files) -> None:
         if not os.path.exists(dirname):
             raise ValueError(f'DCSM_TEMPLATE_{key} {dirname} does not exist')
 
-        processed += process_dir(dirname, secrets)
+        processed += template_dir(dirname, secrets)
 
     print(f"successfully processed {processed} template files")
 

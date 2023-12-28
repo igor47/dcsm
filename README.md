@@ -1,11 +1,10 @@
 # Docker Compose Secrets Manager
 
-This project is intended for folks who, like me, run their self-hosted infrastructure using `docker-compose.yaml` files.
-I like to keep my `docker-compose.yaml` files in a git repo.
-This way, I can work on the configs locally and deploy to my remote server.
-The git repo is my [configuration-as-code/infrastructure-as-code](https://www.cloudbees.com/blog/configuration-as-code-everything-need-know) for my self-hosted infrastructure.
+Target audience:
+* You run your self-hosted infrastructure using `docker-compose.yaml` files
+* You keep your infra checked into a git repo, [configuration-as-code/infrastructure-as-code](https://www.cloudbees.com/blog/configuration-as-code-everything-need-know) style
 
-A common issue with such projects -- <b>what the heck do you do with the secrets?</b>
+You probably have the question -- <b>what the heck do you do with the secrets?</b>
 
 `dcsm` allows you to store your secrets, encrypted, in a file in the git repo.
 When your `docker compose` starts, `dcsm` will decrypt the secrets and inject them into any `*.template` files in your repo.
@@ -25,7 +24,7 @@ Add this service to your `docker-compose.yaml` file:
       - .:/config
 ```
 
-Here, we mount the entire directory as a volume to `/config`.
+Here, we bind-mount the entire git repo to `/config` inside the container.
 Any `*.template` files in the directory will be processed by `dcsm` and the result will be written to the same path without the `.template` suffix.
 You can then mount the resulting file into your service containers.
 
@@ -39,27 +38,96 @@ Services that depend on secrets to be injected by `dcsm` should depend on the `d
         condition: service_completed_successfully
 ```
 
-The `secrets.yaml.encrypted` file is a YAML file encrypted using [age](https://age-encryption.org/).
-The `key.private` file is the key used to encrypt the `secrets.yaml.encrypted` file.
-Create `key.private` using `age-keygen` (see the [Example section](#Example) for a full walk-through).
-The `key.private` file should be kept secret and should not be checked into your git repo.
-
-Inside `.template` files, use your secret vars like so: `$DCSM{secret}`.
-Here, that string will be replaced with the value of the secret `secret` found in your `secrets.encrypted` file.
 
 ## Environment Variables
 
-The following environment variables are required and must be specified:
+The following environment variables are required by `dcsm` and MUST be specified:
 
 * `DCSM_KEYFILE` -- path to the private key file inside the container
 * `DCSM_SECRETS_FILE` -- path to the encrypted secrets file inside the container
 
-You may optionally specify a `DCSM_SOURCE_FILE` environment variable.
-This will allow you to invoke `dcsm` with the `encrypt`/`decrypt` commands to help you manage your plaintext/encrypted secrets files.
+The keyfile in `DCSM_KEYFILE` **must not** be checked into your git repo.
+It can be created locally if you have [age](https://age-encryption.org/) installed (see the [Example section](#Example) for a full walk-through).
+Alternatively, you can have `dcsm` generate it:
 
-Additionally, you may specify any number of environment variables beginning with `DCSM_TEMPLATE_`.
+```
+$ docker compose run --rm dcsm keygen
+successfully generated key file /secrets/key.private
+```
+
+Additionally, you SHOULD specify any number of environment variables beginning with `DCSM_TEMPLATE_` (e.g., `DCSM_TEMPLATE_CONFIGS`).
 These should point to directories inside the container.
 In those directories, `dcsm` will find `*.template` files and process them, replacing `$DCSM{VAR}` with the value of the secret `VAR`.
+
+You MAY optionally specify a `DCSM_SOURCE_FILE` environment variable.
+The file in `DCSM_SOURCE_FILE` **must not** be checked into your git repo.
+Specifying it will allow you to invoke `dcsm` with the `encrypt`/`decrypt` commands to help you manage your plaintext/encrypted secrets files:
+
+```
+$ docker compose run --rm dcsm encrypt
+successfully encrypted source file /secrets/secrets.yaml => /secrets/secrets.encrypted
+$ docker compose run --rm dcsm decrypt
+successfully decrypted secrets file /secrets/secrets.encrypted -> /secrets/secrets.yaml
+don't forget to re-encrypt and remove the source file!
+```
+
+## Templates
+
+Files with the  `.template` extension in all `DCSM_TEMPLATE_X` directories will be processed by `dcsm`.
+The template files can be of any format (e.g., `config.yaml.template`, `config.ini.template`, etc...).
+For every file ending with `.template`, `dcsm` will create a file with `.template` removed, with the same ownership and permissions.
+
+Inside `.template` files, use your secret vars like so: `$DCSM{secret}`.
+Here, that string will be replaced with the value of the secret `secret` found in your `secrets.encrypted` file.
+
+### Templating `env_file`s
+
+If your service requires secrets provided as environment variables, you may template `env_file` files.
+For example, if you want a secret password for a [postgres container](https://hub.docker.com/_/postgres/), create a `postgres.env.template` file:
+
+```bash
+POSTGRES_PASSWORD=$DCSM{POSTGRES_PASSWORD}
+```
+
+And provide it to your container like so:
+
+```yaml
+postgres:
+  image: postgres
+  depends_on:
+    dcsm:
+      condition: service_completed_successfully
+  env_file:
+    - postgres.env
+```
+
+`dcsm` will copy `postgres.env.template` to `postgres.env`, replacing `$DCSM{POSTGRES_PASSWORD}` with the value of the secret in your `secrets.encrypted` file.
+
+### Missing Files
+
+When you depend on `dcsm`, your `compose.yaml` file ends up specifying files that don't (yet) exist.
+For example, if you specify `postgres` as in the example above, then `docker compose` will complain:
+
+```
+Failed to load postgres.env: open postgres.env: no such file or directory
+```
+
+This is because your repo contains `postgres.env.template` -- `postgres.env` will not exist until after `dcsm` runs.
+You can create all the missing files by running `dcsm`:
+
+```
+$ docker compose up dcsm
+[+] Running 1/0
+ ✔ Container dcsm-1  Created                                                                                                            0.0s
+Attaching to dcsm-1
+dcsm-1  | successfully processed 1 template files
+```
+
+Unfortunately, `docker compose` will complain about the missing files, even if they do not pertain to the service you `up`.
+There are two hacky workarounds (sorry about this!):
+
+1. temporarily edit your `compose.yaml` to remove all services except `dcsm`, then `docker compose dcsm up`
+1. create fake versions of the missing files
 
 ## Example
 
