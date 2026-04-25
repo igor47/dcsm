@@ -234,7 +234,6 @@ database:
 Finally, your `docker-compose.yaml` will look like so:
 
 ```yaml
-version: '3.9'
 services:
   dcsm:
     image: ghcr.io/igor47/dcsm:latest
