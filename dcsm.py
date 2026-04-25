@@ -133,6 +133,124 @@ def template_dir(dirname: str, secrets: Dict[str, Any]) -> int:
 
     return processed
 
+def find_template_files(dirname: str) -> list[Path]:
+    """Return resolved paths of every *.template file under dirname"""
+    found: list[Path] = []
+    for root, dirs, files in os.walk(dirname):
+        dir = Path(root).resolve()
+        for filename in files:
+            if filename.endswith('.template'):
+                found.append(dir.joinpath(filename))
+    return found
+
+GITIGNORE_BEGIN = '# BEGIN DCSM (managed by `dcsm gitignore` -- do not edit)'
+GITIGNORE_END = '# END DCSM'
+
+def find_proximate_gitignore(template: Path, template_root: Path) -> Path:
+    """Find the nearest .gitignore at or above template's directory.
+
+    Walks upwards from the template's parent directory up to (and including)
+    template_root. Caller must pass paths resolved the same way so directory
+    equality holds. If no .gitignore is found, returns the path where one
+    should be created (at the template root, so a tree with no existing
+    gitignores collects all entries into a single new file).
+    """
+    assert template.is_relative_to(template_root), (
+        f'{template} is not under template root {template_root}'
+    )
+
+    current = template.parent
+    while True:
+        candidate = current / '.gitignore'
+        if candidate.is_file():
+            return candidate
+        if current == template_root:
+            break
+        current = current.parent
+
+    return template_root / '.gitignore'
+
+def render_gitignore_block(entries: list[str]) -> str:
+    """Render the managed block listing the given relative paths"""
+    body = '\n'.join(entries)
+    return f"{GITIGNORE_BEGIN}\n{body}\n{GITIGNORE_END}\n"
+
+def update_gitignore(path: Path, entries: list[str]) -> bool:
+    """Create or update the managed block in the gitignore at path.
+
+    Returns True if the file was written, False if it was already up-to-date.
+    """
+    new_block = render_gitignore_block(sorted(set(entries)))
+    original = path.read_text() if path.exists() else ''
+
+    pattern = re.compile(
+        r'\n*' + re.escape(GITIGNORE_BEGIN) + r'\n.*?' + re.escape(GITIGNORE_END) + r'\n*',
+        re.DOTALL,
+    )
+    m = pattern.search(original)
+    if m:
+        before = original[:m.start()].rstrip('\n')
+        after = original[m.end():].lstrip('\n')
+    else:
+        before = original.rstrip('\n')
+        after = ''
+
+    parts: list[str] = []
+    if before:
+        parts.append(before + '\n\n')
+    parts.append(new_block)
+    if after:
+        parts.append('\n' + after)
+    replaced = ''.join(parts)
+
+    if replaced == original:
+        return False
+
+    path.write_text(replaced)
+    return True
+
+def gitignore(files: Files) -> None:
+    """Update .gitignore files near each template with the resulting filename"""
+    template_dirs = [
+        v for k, v in os.environ.items() if k.startswith('DCSM_TEMPLATE_')
+    ]
+    if not template_dirs:
+        raise ValueError('no DCSM_TEMPLATE_* environment variables set')
+
+    # group entries by the gitignore that should manage them
+    grouped: Dict[Path, list[str]] = {}
+    total_templates = 0
+
+    for dirname in template_dirs:
+        if not os.path.exists(dirname):
+            raise ValueError(f'template directory {dirname} does not exist')
+        root = Path(dirname).resolve()
+
+        for template in find_template_files(dirname):
+            total_templates += 1
+            output = template.with_suffix('')  # strip .template
+            ignore_path = find_proximate_gitignore(template, root)
+            try:
+                rel = output.relative_to(ignore_path.parent)
+            except ValueError:
+                # output is not under the gitignore's directory -- fall back
+                # to an absolute-from-gitignore-dir style by skipping
+                rel = Path(output.name)
+            grouped.setdefault(ignore_path, []).append(str(rel))
+
+    written = 0
+    for ignore_path, entries in grouped.items():
+        if update_gitignore(ignore_path, entries):
+            written += 1
+            print(f"updated {ignore_path} ({len(entries)} entr{'y' if len(entries) == 1 else 'ies'})")
+        else:
+            print(f"unchanged {ignore_path}")
+
+    print(
+        f"processed {total_templates} template files across "
+        f"{len(grouped)} gitignore file(s); wrote {written}"
+    )
+
 def encrypt(files: Files) -> None:
     """Encrypt the source file into the secrets file"""
     files.check_set(secrets=True)
@@ -220,7 +338,7 @@ def keygen(files: Files) -> None:
 
 def main() -> None:
     """DCSM entry point"""
-    usage = "Usage: dcsm <run|encrypt|decrypt|keygen>"
+    usage = "Usage: dcsm <run|encrypt|decrypt|keygen|gitignore>"
     try:
         task = sys.argv[1]
     except IndexError:
@@ -237,6 +355,8 @@ def main() -> None:
         encrypt(files)
     elif task == "decrypt":
         decrypt(files)
+    elif task == "gitignore":
+        gitignore(files)
     else:
         print(usage)
         sys.exit(1)

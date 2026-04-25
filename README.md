@@ -129,6 +129,27 @@ There are two hacky workarounds (sorry about this!):
 1. temporarily edit your `compose.yaml` to remove all services except `dcsm`, then `docker compose dcsm up`
 1. create fake versions of the missing files (e.g. `touch postgres.env`)
 
+### Keeping decrypted files out of git
+
+The output of every `*.template` file is a decrypted secret that should not be committed.
+Rather than maintaining your `.gitignore` by hand, run:
+
+```
+$ docker compose run --rm dcsm gitignore
+```
+
+For each `.template` file, `dcsm` finds the nearest `.gitignore` at or above the template's directory (bounded by the `DCSM_TEMPLATE_*` root) and updates a managed block:
+
+```
+# BEGIN DCSM (managed by `dcsm gitignore` -- do not edit)
+postgres.env
+synapse/homeserver.yaml
+# END DCSM
+```
+
+If no ancestor `.gitignore` exists within the template root, one is created at the template root itself, so all entries collect into a single file rather than scattering one `.gitignore` per template directory.
+The command is idempotent and only rewrites a file when the contents would actually change.
+
 ## Example
 
 You want to run a [synapse home server](https://matrix-org.github.io/synapse/latest/welcome_and_overview.html).
