@@ -1,4 +1,6 @@
 .direnv
+.venv
+dcsm.egg-info
 
 __pycache__
 

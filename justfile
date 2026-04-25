@@ -3,6 +3,10 @@
 list:
   just --list --justfile {{justfile()}}
 
+# install python project dependencies (runtime + dev) into the active venv
+setup:
+  uv pip install -e '.[dev]'
+
 # build docker container
 build:
   docker build . -t dcsm:latest
