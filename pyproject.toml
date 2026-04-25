@@ -10,6 +10,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "mypy",
+    "ruff",
     "types-PyYAML",
 ]
 
@@ -26,3 +27,9 @@ py-modules = ["dcsm"]
 [tool.mypy]
 strict = true
 files = '.'
+
+[tool.ruff.lint]
+extend-select = [
+    "I",  # isort
+    "B",  # flake8-bugbear
+]

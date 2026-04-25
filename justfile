@@ -7,6 +7,11 @@ list:
 setup:
   uv pip install -e '.[dev]'
 
+# autoformat python sources and apply lint autofixes
+format:
+  ruff format .
+  ruff check --fix .
+
 # build docker container
 build:
   docker build . -t dcsm:latest
@@ -33,6 +38,9 @@ test:
   set -euo pipefail
   # remove dangling result from previous test
   rm -rf example/templates/test
+  # lint and format checks
+  ruff check .
+  ruff format --check .
   # type tests
   mypy .
   # run unit tests
