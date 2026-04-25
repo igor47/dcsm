@@ -208,10 +208,12 @@ def update_gitignore(path: Path, entries: list[str]) -> bool:
         + r"\n*",
         re.DOTALL,
     )
-    m = pattern.search(original)
-    if m:
-        before = original[: m.start()].rstrip("\n")
-        after = original[m.end() :].lstrip("\n")
+    # span from first to last managed block so any duplicates (e.g. left
+    # behind by a merge conflict) collapse into a single block
+    matches = list(pattern.finditer(original))
+    if matches:
+        before = original[: matches[0].start()].rstrip("\n")
+        after = original[matches[-1].end() :].lstrip("\n")
     else:
         before = original.rstrip("\n")
         after = ""

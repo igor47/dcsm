@@ -198,6 +198,29 @@ class TestGitignore(unittest.TestCase):
             # only one managed block
             self.assertEqual(content.count(GITIGNORE_BEGIN), 1)
 
+    def test_update_gitignore_collapses_multiple_existing_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / ".gitignore"
+            path.write_text(
+                "keep-me\n\n"
+                f"{GITIGNORE_BEGIN}\nstale1.env\n{GITIGNORE_END}\n"
+                "\n"
+                f"{GITIGNORE_BEGIN}\nstale2.env\n{GITIGNORE_END}\n"
+                "\n"
+                "tail-content\n"
+            )
+            update_gitignore(path, ["fresh.env"])
+            content = path.read_text()
+
+            self.assertIn("keep-me", content)
+            self.assertIn("tail-content", content)
+            self.assertNotIn("stale1.env", content)
+            self.assertNotIn("stale2.env", content)
+            self.assertIn("fresh.env", content)
+            # exactly one managed block remains
+            self.assertEqual(content.count(GITIGNORE_BEGIN), 1)
+            self.assertEqual(content.count(GITIGNORE_END), 1)
+
     def test_update_gitignore_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / ".gitignore"
