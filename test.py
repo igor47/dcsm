@@ -71,6 +71,16 @@ class TestGitignore(unittest.TestCase):
             found = find_proximate_gitignore(template, root)
             self.assertEqual(found, root / "sub" / ".gitignore")
 
+    def test_find_proximate_rejects_template_outside_root(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "inside"
+            root.mkdir()
+            outside = Path(td) / "elsewhere" / "file.env.template"
+            self._touch(outside)
+
+            with self.assertRaises(ValueError):
+                find_proximate_gitignore(outside, root)
+
     def test_find_proximate_falls_back_to_template_root(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

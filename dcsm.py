@@ -171,9 +171,8 @@ def find_proximate_gitignore(template: Path, template_root: Path) -> Path:
     should be created (at the template root, so a tree with no existing
     gitignores collects all entries into a single new file).
     """
-    assert template.is_relative_to(template_root), (
-        f"{template} is not under template root {template_root}"
-    )
+    if not template.is_relative_to(template_root):
+        raise ValueError(f"{template} is not under template root {template_root}")
 
     current = template.parent
     while True:
@@ -199,7 +198,7 @@ def update_gitignore(path: Path, entries: list[str]) -> bool:
     Returns True if the file was written, False if it was already up-to-date.
     """
     new_block = render_gitignore_block(sorted(set(entries)))
-    original = path.read_text() if path.exists() else ""
+    original = path.read_text(encoding="utf-8") if path.exists() else ""
 
     pattern = re.compile(
         r"\n*"
@@ -228,7 +227,7 @@ def update_gitignore(path: Path, entries: list[str]) -> bool:
     if replaced == original:
         return False
 
-    path.write_text(replaced)
+    path.write_text(replaced, encoding="utf-8")
     return True
 
 
@@ -251,12 +250,9 @@ def gitignore(files: Files) -> None:
             total_templates += 1
             output = template.with_suffix("")  # strip .template
             ignore_path = find_proximate_gitignore(template, root)
-            try:
-                rel = output.relative_to(ignore_path.parent)
-            except ValueError:
-                # output is not under the gitignore's directory -- fall back
-                # to an absolute-from-gitignore-dir style by skipping
-                rel = Path(output.name)
+            # find_proximate_gitignore returns a path at or above the
+            # template's directory, so output is always under ignore_path.parent
+            rel = output.relative_to(ignore_path.parent)
             grouped.setdefault(ignore_path, []).append(str(rel))
 
     written = 0
