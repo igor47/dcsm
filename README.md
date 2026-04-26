@@ -129,6 +129,27 @@ There are two hacky workarounds (sorry about this!):
 1. temporarily edit your `compose.yaml` to remove all services except `dcsm`, then `docker compose dcsm up`
 1. create fake versions of the missing files (e.g. `touch postgres.env`)
 
+### Keeping decrypted files out of git
+
+The output of every `*.template` file is a decrypted secret that should not be committed.
+Rather than maintaining your `.gitignore` by hand, run:
+
+```
+$ docker compose run --rm dcsm gitignore
+```
+
+For each `.template` file, `dcsm` finds the nearest `.gitignore` at or above the template's directory (bounded by the `DCSM_TEMPLATE_*` root) and updates a managed block:
+
+```
+# BEGIN DCSM (managed by `dcsm gitignore` -- do not edit)
+postgres.env
+synapse/homeserver.yaml
+# END DCSM
+```
+
+If no ancestor `.gitignore` exists within the template root, one is created at the template root itself, so all entries collect into a single file rather than scattering one `.gitignore` per template directory.
+The command is idempotent and only rewrites a file when the contents would actually change.
+
 ## Example
 
 You want to run a [synapse home server](https://matrix-org.github.io/synapse/latest/welcome_and_overview.html).
@@ -213,7 +234,6 @@ database:
 Finally, your `docker-compose.yaml` will look like so:
 
 ```yaml
-version: '3.9'
 services:
   dcsm:
     image: ghcr.io/igor47/dcsm:latest
@@ -257,13 +277,45 @@ The other main option is to create and store all your secrets outside of your `d
 This makes it hard to know exactly what you did to bring up the service.
 At some point, so much stuff has leaked out of the `docker compose` repo that it's not worth it to have the repo at all.
 
-## Dev
+## Developing
 
-Most dev tasks are documented in code in the `Justfile`.
-Install [`just`](https://just.systems/man/en/chapter_4.html) and run `just` to see the available tasks.
+The dev environment is managed by [mise](https://mise.jdx.dev/) and dev tasks are wrapped in a `justfile`.
+Install both:
 
-### Requirements
+* [`mise`](https://mise.jdx.dev/getting-started.html)
+* [`just`](https://just.systems/man/en/chapter_4.html)
 
-Prod requirements are stored in `requirements.txt`.
-Additional dev mode requirements are in `requirements-dev.txt`.
-Use `pip sync requirements.txt` to put your environment into prod mode.
+When you `cd` into the repo, `mise` reads `mise.toml` and:
+
+* installs the pinned Python version
+* creates a project-local `.venv` and activates it for the current shell
+
+Then install the project's runtime + dev dependencies (declared in `pyproject.toml`):
+
+```
+$ just setup
+```
+
+Run `just` with no arguments to see all available recipes:
+
+```
+$ just
+Available recipes:
+    build     # build docker container
+    decrypt   # decrypt secrets file
+    encrypt   # encrypt secrets file
+    format    # autoformat python sources and apply lint autofixes
+    keygen    # generate age symmetric key
+    list      # list the available recipes
+    run       # run DCSM, templating all the `.template` files with secrets
+    setup     # install python project dependencies (runtime + dev) into the active venv
+    test      # run unit and an end-to-end test
+```
+
+### Tests, lint, and types
+
+`just test` runs the full local check: `ruff check`, `ruff format --check`, `mypy --strict`, the unit tests in `test.py`, and the end-to-end `docker compose up`.
+Use `just format` to autoformat sources and apply ruff's autofixable lint suggestions before re-running `just test`.
+
+There is no CI gate that runs `just test` today -- the only GitHub Actions workflow (`.github/workflows/publish.yaml`) builds and publishes the Docker image.
+Run `just test` locally before pushing.
